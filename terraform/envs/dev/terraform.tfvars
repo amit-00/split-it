@@ -1,0 +1,5 @@
+project_id = "split-it-472223"
+region     = "us-central1"
+gh_owner   = "split-it"
+gh_repo    = "split-it"
+gh_ref     = "refs/heads/main"
