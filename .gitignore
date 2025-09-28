@@ -2,6 +2,7 @@
 *.tfstate
 *.tfstate.*
 *.tfvars.json
+*.tfvars
 *.tfplan
 *.tfplan.*
 .terraform/
