@@ -44,10 +44,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',  # Required for allauth
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'phonenumber_field',
+    # Identity app
+    'identity',
+    # django-allauth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.apple',
+    # dj-rest-auth for REST API OAuth endpoints
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
 ]
 
 REST_FRAMEWORK = {
@@ -191,3 +203,50 @@ OTP_COOLDOWN_SECONDS = 60
 
 # Rate Limiting Configuration
 RATE_LIMIT_IDENTIFIER_PER_HOUR = 5
+
+# Custom User Model
+AUTH_USER_MODEL = 'identity.User'
+
+# Site ID (required for allauth)
+SITE_ID = 1
+
+# django-allauth Configuration
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_VERIFICATION = 'none'  # OAuth providers handle email verification
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+
+# Google OAuth Configuration
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'APP': {
+            'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID', ''),
+            'secret': os.getenv('GOOGLE_OAUTH_SECRET', ''),
+            'key': ''
+        }
+    },
+    'apple': {
+        'APP': {
+            'client_id': os.getenv('APPLE_OAUTH_CLIENT_ID', ''),
+            'secret': os.getenv('APPLE_OAUTH_SECRET', ''),
+            'key': os.getenv('APPLE_OAUTH_KEY_ID', ''),
+        }
+    }
+}
+
+# dj-rest-auth Configuration
+REST_USE_JWT = True
+REST_AUTH_TOKEN_MODEL = None  # Use JWT instead of tokens
+REST_AUTH_SERIALIZERS = {
+    'USER_DETAILS_SERIALIZER': 'identity.serializers.UserSerializer',
+}
