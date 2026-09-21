@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "wrangler dev",
@@ -12,10 +12,11 @@
     "check": "npm run types && tsc --noEmit",
     "build": "wrangler deploy --dry-run --outdir dist",
     "db:migrate": "wrangler d1 migrations apply DB --local",
-    "test": "npm run build && node --test test/*.test.mjs"
+    "test": "npm run build && node --experimental-strip-types --test test/*.test.mjs"
   },
   "dependencies": {
-    "better-auth": "^1.7.4"
+    "better-auth": "^1.7.4",
+    "hono": "^4.13.8"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",

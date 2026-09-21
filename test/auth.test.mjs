@@ -1,6 +1,7 @@
 import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeSignature, symmetricEncodeJWT } from 'better-auth/crypto';
+import { migrate } from './helpers.mjs';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 
 const origin = 'http://localhost:8787';
@@ -16,7 +17,7 @@ async function sessionCookies({ expiresAt = Date.now() + 3600000 } = {}) {
   const now = new Date();
   const token = 'test-session-token';
   const user = {
-    id: 'test-user', name: 'Test Friend', email: 'friend@example.com', emailVerified: true,
+    id: 'test-user', appUserId: 'test-user', name: 'Test Friend', email: 'friend@example.com', emailVerified: true,
     image: null, createdAt: now, updatedAt: now,
   };
   const session = {
@@ -35,8 +36,13 @@ before(async () => {
     modules: true, scriptPath: 'dist/index.js',
     compatibilityDate: '2026-09-12', compatibilityFlags: ['nodejs_compat'],
     bindings: { BETTER_AUTH_URL: origin, BETTER_AUTH_SECRET: secret, GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret' },
+    d1Databases: { DB: 'auth-test' },
     serviceBindings: { ASSETS: () => new Response('Split It') },
   }));
+  const db = await mf.getD1Database('DB');
+  await migrate(db);
+  await db.prepare("INSERT INTO users(id,display_name,email) VALUES('test-user','Test Friend','friend@example.com')").run();
+  await db.prepare("INSERT INTO user_identities(provider,provider_subject,user_id) VALUES('google','test-sub','test-user')").run();
 });
 after(async () => { await mf?.dispose(); });
 
