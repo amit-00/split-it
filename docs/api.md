@@ -4,7 +4,7 @@ The Worker serves JSON endpoints under `/api`. Sign in with Google through the e
 
 ## Requests, versions and retries
 
-Send `Content-Type: application/json` for JSON bodies and the configured application `Origin` on all financial/group/lookup writes. Cookies authenticate the caller; caller IDs, creator IDs, recorder IDs and versions are assigned by the server. Bodies with unsupported fields are rejected. Authentication endpoints keep Better Auth's own request and error contracts.
+Send `Content-Type: application/json` for JSON bodies and the configured application `Origin` on all financial/group writes. Cookies authenticate the caller; caller IDs, creator IDs, recorder IDs and versions are assigned by the server. Bodies with unsupported fields are rejected. Authentication endpoints keep Better Auth's own request and error contracts.
 
 Expense and settlement creation require an `Idempotency-Key` header (1–128 ASCII letters/digits or `._:-`). Generate a fresh key for a new operation; reuse it if a request times out. A key is scoped to the authenticated user and resource type. Semantically identical normalized input returns the original `201` resource; changed input returns `409`. Creation receipts are retained after edits and deletion, so replay returns the original version and never resurrects a deleted record. Reload the resource to get its current state.
 
@@ -28,7 +28,7 @@ Responses are private (`Cache-Control: no-store`) and carry `X-Request-ID`. `400
 | Method/path | Body or result |
 |---|---|
 | `GET /api/me` | `{user:{id,name,email,avatarUrl}}` |
-| `POST /api/users/lookup` | Body `{email}`; result `{id,name,avatarUrl}` |
+| `GET /api/users?email=...` | Required exact email query; result `{id,name,avatarUrl}` |
 | `GET /api/groups` | Current membership groups |
 | `POST /api/groups` | `{name,defaultCurrencyCode?}`; returns a group, `201` |
 | `GET /api/groups/:id` | A group visible to current members |
@@ -41,7 +41,7 @@ Responses are private (`Cache-Control: no-store`) and carry `X-Request-ID`. `400
 
 Group resources are `{id,name,defaultCurrencyCode,createdByUserId,createdAt,version}`. Currency defaults are `CAD`, `USD` or `null`; they do not convert money or fill in omitted expense currencies. Names contain 1–200 characters. Creator is owner, and cannot leave or be removed. Ownership transfer is not supported. Rejoining reactivates the historical membership and retains its original `joinedAt`.
 
-Lookup trims whitespace and ignores ASCII case; it does not strip dots or `+` suffixes. It requires the complete email, never lists users, and reports ambiguous registered matches as `409`. It allows 30 lookups per minute per caller. Email remains mutable profile data, not an account identity.
+Lookup requires exactly one `email` query parameter, such as `/api/users?email=alice%2Btrip%40example.com`; URL-encode the value so `+` remains literal. Missing, duplicate, or unsupported query parameters are rejected. Lookup trims whitespace and ignores ASCII case; it does not strip dots or `+` suffixes. It requires the complete email, never lists users, and reports ambiguous registered matches as `409`. It allows 30 lookups per minute per caller. Email remains mutable profile data, not an account identity.
 
 Adding a member grants access to existing grouped expenses. Removing someone revokes group-derived access while preserving access to expenses they created or financially participate in. Deleting a group detaches its expenses, increments their versions, and records detach audit events. Balances and settlements are unchanged.
 

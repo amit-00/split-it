@@ -94,11 +94,11 @@ function ownerGuard(db: D1Database, groupId: string, userId: string, version: nu
 
 export const groups = new Hono<Bindings>();
 
-groups.post('/users/lookup', async c => {
-  const input = await body(c);
-  fields(input, ['email']);
-  if (typeof input.email !== 'string') fail(400, 'invalid_email', 'email must be a valid email address.');
-  const email = input.email.trim();
+groups.get('/users', async c => {
+  fields(c.req.query(), ['email']);
+  const emails = c.req.queries('email');
+  if (!emails || emails.length !== 1) fail(400, 'invalid_email', 'Supply exactly one email query parameter.');
+  const email = emails[0].trim();
   if (email.length > 320 || !/^[^\s@]+@[^\s@]+$/.test(email)) fail(400, 'invalid_email', 'email must be a valid email address.');
 
   const userId = c.get('userId');

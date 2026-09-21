@@ -41,7 +41,7 @@ Existing /api/auth/*, /api/me and /api/health remain. API payloads use camelCase
 
 | Routes | Purpose |
 |---|---|
-| POST /api/users/lookup | Exact email lookup |
+| GET /api/users?email=... | Exact email lookup |
 | GET, POST /api/expenses | Personal feed/create |
 | GET, PUT, DELETE /api/expenses/:id | Read/replace/delete |
 | GET /api/expenses/:id/history | Authorized audit history |

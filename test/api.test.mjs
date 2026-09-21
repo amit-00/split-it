@@ -15,13 +15,13 @@ test('durable identity, exact private lookup, missing identity and cross-origin 
   assert.equal((await f.request(null, '/api/expenses')).status, 401);
   assert.equal((await f.request(null, '/api/me', 'GET', undefined, { Cookie: await cookieFor('missing') })).status, 401);
   assert.equal((await f.request(null, '/api/me', 'GET', undefined, { Cookie: await cookieFor('alice', { appUserId: undefined }) })).status, 401);
-  const lookup = await f.request('alice', '/api/users/lookup', 'POST', { email: ' BOB@EXAMPLE.COM ' });
+  const lookup = await f.request('alice', '/api/users?' + new URLSearchParams({ email: ' BOB@EXAMPLE.COM ' }));
   assert.equal(lookup.status, 200); assert.deepEqual(await lookup.json(), { id: 'bob', name: 'bob', avatarUrl: null });
-  assert.equal((await f.request('alice', '/api/users/lookup', 'POST', { email: 'bob' })).status, 400);
-  assert.equal((await f.request('alice', '/api/users/lookup', 'POST', { email: 'bo@example.com' })).status, 404);
+  assert.equal((await f.request('alice', '/api/users?' + new URLSearchParams({ email: 'bob' }))).status, 400);
+  assert.equal((await f.request('alice', '/api/users?' + new URLSearchParams({ email: 'bo@example.com' }))).status, 404);
   await f.db.prepare("INSERT INTO users(id,display_name,email) VALUES('collision','Other','BOB@example.com')").run();
   await f.db.prepare("INSERT INTO user_identities(provider,provider_subject,user_id) VALUES('google','collision-sub','collision')").run();
-  assert.equal((await f.request('alice', '/api/users/lookup', 'POST', { email: 'bob@example.com' })).status, 409);
+  assert.equal((await f.request('alice', '/api/users?' + new URLSearchParams({ email: 'bob@example.com' }))).status, 409);
   assert.equal((await f.request('alice', '/api/expenses', 'POST', expense(), { Origin: 'https://evil.example' })).status, 403);
 });
 
@@ -114,4 +114,18 @@ test('validation and failed writes cannot leave allocations, debt or audit behin
   for (const table of ['expenses', 'expense_payments', 'expense_shares', 'expense_allocations', 'audit_events']) {
     assert.equal((await f.db.prepare('SELECT COUNT(*) AS n FROM ' + table).first()).n, 0);
   }
+});
+
+test('GET users requires one exact email query and replaces the old POST lookup', async t => {
+  const f = await fixture(); t.after(() => f.mf.dispose());
+  assert.equal((await f.request(null, '/api/users?email=bob%40example.com')).status, 401);
+  for (const query of ['', '?email=', '?email=bob%40example.com&email=carol%40example.com', '?email=bob%40example.com&name=Bob']) {
+    assert.equal((await f.request('alice', '/api/users' + query)).status, 400);
+  }
+  await f.db.prepare("UPDATE users SET email='carol+trip@example.com' WHERE id='carol'").run();
+  const response = await f.request('alice', '/api/users?' + new URLSearchParams({ email: 'carol+trip@example.com' }));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal((await response.json()).id, 'carol');
+  assert.equal((await f.request('alice', '/api/users/lookup', 'POST', { email: 'bob@example.com' })).status, 404);
 });

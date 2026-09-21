@@ -5,7 +5,7 @@ import { fixture, version } from './helpers.mjs';
 test('user lookup allows 30 requests per minute', async t => {
   const f = await fixture(); t.after(() => f.mf.dispose());
 
-  const requests = Array.from({ length: 31 }, () => f.request('alice', '/api/users/lookup', 'POST', { email: 'bob@example.com' }));
+  const requests = Array.from({ length: 31 }, () => f.request('alice', '/api/users?email=bob%40example.com'));
   const responses = await Promise.all(requests);
   assert.equal(responses.filter(response => response.status === 200).length, 30);
   assert.equal(responses.filter(response => response.status === 429).length, 1);
