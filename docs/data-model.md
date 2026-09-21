@@ -1,6 +1,6 @@
 # Data model
 
-The application uses Cloudflare D1 (SQLite). `migrations/0000_expense_model.sql` defines the baseline model. Authentication still uses Better Auth's stateless cookies.
+The application uses Cloudflare D1 (SQLite). `migrations/0000_expense_model.sql` defines the baseline model; `0001_core_api.sql` adds the API write-safety and audit structures. Authentication still uses Better Auth's stateless cookies.
 
 ## Relationships
 
@@ -24,7 +24,7 @@ For example, Alice pays 3000 cents for a three-person equal split. Shares are 10
 
 The database enforces row constraints, foreign keys, and updates to the balance and involvement projections. Cross-row sums require application validation in the same transaction. Expense currency is immutable after creation so allocations cannot silently move between currency balances; correct a wrong currency by replacing the expense and its allocations in a transaction. Financial edit features should record an audit trail. Use `idempotency_key` on settlements to prevent a retried payment from being recorded twice.
 
-A settlement from A to B reduces A's total debt to B in that currency, regardless of which expenses produced it. If the payment exceeds the debt, the signed balance crosses zero and B then owes A. The API can decide whether to allow overpayments. Group membership and permission checks for organizing or viewing expenses belong in the API; financial participants do not need to be group members.
+A settlement from A to B reduces A's total debt to B in that currency, regardless of which expenses produced it. If the payment exceeds the debt, the signed balance crosses zero and B then owes A. The API allows overpayments. Group membership and permission checks for organizing or viewing expenses belong in the API; financial participants do not need to be group members.
 
 ## Frequent reads
 
@@ -77,7 +77,17 @@ FROM pair_balances WHERE user_high_id = :user_id AND net_minor > 0;
 
 ## Auth integration
 
-The stateless auth session is separate from `users`. After verified Google sign-in, resolve the Google subject through `user_identities`, creating a user and identity atomically on first sign-in. Use that app user ID for every financial foreign key. Do not assume Better Auth's stateless `user.id` is durable. API routes for this resolution and for financial records remain future work.
+The stateless auth session is separate from `users`. After verified Google sign-in, resolve the Google subject through `user_identities`, creating a user and identity atomically on first sign-in. Use that app user ID for every financial foreign key. Do not assume Better Auth's stateless `user.id` is durable. The API implements this resolution during verified Google profile mapping and includes a protected app-user ID in its encrypted session. A request-local user-create hook injects that ID after Better Auth filters provider fields; clients cannot set it. `/api/me` returns the durable app profile.
+
+## API additions
+
+- `expenses`, `settlements`, and `groups` carry incrementing `version` fields. Writes require the last-read version; membership changes use the group version.
+- `audit_events` retains financial before/after JSON snapshots, actor, action and time. Creation events also hold actor/resource-scoped idempotency keys and normalized request hashes. Audit records do not reference deletable financial rows, so deletions retain history and retry receipts.
+- `mutation_guards` supplies database constraints for atomic authorization/version assertions. Successful batches delete their assertion row; failed assertions roll back the complete mutation.
+- `lookup_limits` stores one current minute counter per caller for exact email discovery. An expression index supports normalized email lookup; email is deliberately not unique because it is not identity.
+- End-of-batch balance assertions reject non-integer or out-of-safe-range final balances for every affected pair. Application money calculations use integer arithmetic and validate aggregate sums before writes.
+
+See [API contracts](api.md) for permissions, snapshot redaction, pagination, and correction rules. Financial history is retained indefinitely in this version.
 
 ## Operations
 
